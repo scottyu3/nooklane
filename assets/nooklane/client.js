@@ -383,12 +383,20 @@
         .on(E.DataReceived, (payload, p, kind, topic) => this._data(payload, p, topic))
         .on(E.AudioPlaybackStatusChanged, () => this._send({ audio_blocked: !room.canPlaybackAudio }))
         .on(E.MediaDevicesError, (e) => this._send({ type: 'warning', message: errorText(e) }))
-        .on(E.Reconnecting, () => this._send({ status: 'Reconnecting...' }))
-        .on(E.Reconnected, () => { this._send({ status: 'Connected' }); this._sendPos(true); })
-        .on(E.Disconnected, () => {
+        .on(E.Reconnecting, () => {
+          console.warn('[nooklane] LiveKit room Reconnecting...');
+          this._send({ status: 'Reconnecting...' });
+        })
+        .on(E.Reconnected, () => {
+          console.log('[nooklane] LiveKit room Reconnected!');
+          this._send({ status: 'Connected' });
+          this._sendPos(true);
+        })
+        .on(E.Disconnected, (reason) => {
+          console.warn('[nooklane] LiveKit room Disconnected event! reason:', reason);
           if (this.room !== room || this.leaving) return;
           this._cleanup();
-          this._send({ status: 'Disconnected' });
+          this._send({ status: 'Disconnected', reason: String(reason || 'unknown') });
         });
       this.leaving = false;
       window.addEventListener('beforeunload', () => { this.leaving = true; }, { once: true });
@@ -439,7 +447,8 @@
       this._send({ mode: this.media.mode });
     },
 
-    async disconnect() {
+    async disconnect(reason = 'unspecified') {
+      console.warn(`[nooklane] disconnect() called! reason: ${reason}`, new Error().stack);
       const room = this.room;
       this.leaving = true;
       this._savePos(true);
@@ -1432,9 +1441,13 @@
       if (!this.world) return;
       try {
         const host = document.getElementById('nook-map-host');
+        const isSpaceUrl = window.location.pathname.includes('/s/');
         // The space page went away (a link to the front page): leave the room.
-        if (host) this.hostSeenAt = now;
-        else if (this.room && now - (this.hostSeenAt || now) > 1000) this.disconnect();
+        if (host || isSpaceUrl) {
+          this.hostSeenAt = now;
+        } else if (this.room && now - (this.hostSeenAt || now) > 10000) {
+          this.disconnect('host-gone-from-dom-and-url');
+        }
         this.world.mount(host);
         this.media.mountView(document.getElementById('nook-self-host') || document.getElementById('nook-preview-host'));
         this._tickMove(now);

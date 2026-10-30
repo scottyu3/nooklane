@@ -226,7 +226,7 @@ class SpaceState(LangState):
         self.init_lang()
         space_id = self._space_from_url()
         if self.joined:
-            if self.space_id == space_id:
+            if not space_id or self.space_id == space_id:
                 # Already active in this space: do not kick the user out on socket reconnects.
                 return
             # Back on a space page (after the front page, or another space):
@@ -644,6 +644,7 @@ class SpaceState(LangState):
         if "status" in data:
             self.connection = str(data["status"])
             if data["status"] == "Disconnected" and self.joined:
+                logger.warning("handle_js: Disconnected received from JS! reason=%s", data.get("reason", "unknown"))
                 self.joined = False
                 self.people = []
                 self.error = tr(lang, "disconnected")
