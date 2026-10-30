@@ -226,6 +226,9 @@ class SpaceState(LangState):
         self.init_lang()
         space_id = self._space_from_url()
         if self.joined:
+            if self.space_id == space_id:
+                # Already active in this space: do not kick the user out on socket reconnects.
+                return
             # Back on a space page (after the front page, or another space):
             # the browser already left the old room; start at the pre-join screen.
             self.joined = False

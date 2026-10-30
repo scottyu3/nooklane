@@ -56,7 +56,9 @@ async def _relay_websocket(websocket: WebSocket) -> None:
 
     async with aiohttp.ClientSession() as session:
         try:
-            upstream = await session.ws_connect(target, headers=headers, max_msg_size=0)
+            upstream = await session.ws_connect(
+                target, headers=headers, max_msg_size=0, heartbeat=15.0
+            )
         except aiohttp.ClientError as exc:
             # Refuse the handshake; the SDK then asks /rtc/.../validate for the reason.
             logger.info("LiveKit signal connect refused: %s", exc)
@@ -81,6 +83,8 @@ async def _relay_websocket(websocket: WebSocket) -> None:
                     await websocket.send_bytes(message.data)
                 elif message.type == aiohttp.WSMsgType.TEXT:
                     await websocket.send_text(message.data)
+                elif message.type in (aiohttp.WSMsgType.PING, aiohttp.WSMsgType.PONG):
+                    continue
                 else:
                     return
 
