@@ -225,16 +225,14 @@ class SpaceState(LangState):
     async def on_load(self):
         self.init_lang()
         space_id = self._space_from_url()
-        if self.joined:
-            if not space_id or self.space_id == space_id:
-                # Already active in this space: do not kick the user out on socket reconnects.
-                return
-            # Back on a space page (after the front page, or another space):
-            # the browser already left the old room; start at the pre-join screen.
+        if not space_id:
+            space_id = self.space_id
+        if self.joined and space_id and self.space_id != space_id:
+            # Back on a space page (after another space):
             self.joined = False
             self.people = []
             self.panel = ""
-            yield _js("disconnect")
+            yield _js("disconnect", "navigated-different-space")
         space = await asyncio.to_thread(spaces.get_space, space_id)
         self.space_id = space_id
         self.found = space is not None
@@ -644,10 +642,13 @@ class SpaceState(LangState):
         if "status" in data:
             self.connection = str(data["status"])
             if data["status"] == "Disconnected" and self.joined:
-                logger.warning("handle_js: Disconnected received from JS! reason=%s", data.get("reason", "unknown"))
+                reason = data.get("reason", "unknown")
+                logger.warning("handle_js: Disconnected received from JS! reason=%s", reason)
                 self.joined = False
                 self.people = []
-                self.error = tr(lang, "disconnected")
+                if reason != "page_init":
+                    self.error = tr(lang, "disconnected")
+                yield _js("preview", {"look": self.look_now, "mode": self.mode_now, "style": self.style_now, "name": self.name})
         if "people" in data and isinstance(data["people"], list):
             self.people = [
                 Person(**{k: v for k, v in p.items() if k in _PERSON_FIELDS})

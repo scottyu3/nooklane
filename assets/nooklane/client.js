@@ -257,6 +257,12 @@
         this.space = opts.space;
       }
       if (!this.world) this._init();
+      // Keep Reflex updated on whether the client actually has an active room
+      if (!this.room) {
+        this._send({ status: 'Disconnected', reason: 'page_init' });
+      } else {
+        this._send({ status: 'Connected' });
+      }
     },
 
     _init() {
